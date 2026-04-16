@@ -1,0 +1,15 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3080:3000"
+    volumes:
+      - secret-data:/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_PATH=/data/secrets.db
+    restart: unless-stopped
+
+volumes:
+  secret-data:

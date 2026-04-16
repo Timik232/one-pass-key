@@ -1,0 +1,8 @@
+{
+  "name": "one-pass-key",
+  "private": true,
+  "workspaces": [
+    "server",
+    "client"
+  ]
+}
