@@ -1,11 +1,13 @@
 import { Hono } from 'hono';
 import type { CreateSecretRequest } from '../types.js';
 import type { createRepository } from '../db/repository.js';
+import { createPassphraseRateLimiter } from '../middleware/rate-limit.js';
 
 export function createSecretsRouter(
   repo: ReturnType<typeof createRepository>,
 ) {
   const router = new Hono();
+  const passphraseLimiter = createPassphraseRateLimiter();
 
   // POST / - Create a new secret
   router.post('/', async (c) => {
@@ -47,8 +49,8 @@ export function createSecretsRouter(
     return c.json(meta);
   });
 
-  // GET /:id - Read and DELETE (atomic)
-  router.get('/:id', (c) => {
+  // GET /:id - Read and DELETE (atomic), with passphrase attempt rate limiting
+  router.get('/:id', passphraseLimiter.middleware, (c) => {
     const secret = repo.readAndDelete(c.req.param('id'));
     if (!secret) {
       return c.json({ error: 'Secret not found or already read' }, 404);

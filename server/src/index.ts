@@ -9,6 +9,9 @@ import { createRepository } from './db/repository.js';
 import { createSecretsRouter } from './routes/secrets.js';
 import { cors } from './middleware/cors.js';
 import { errorHandler } from './middleware/error-handler.js';
+import { securityHeaders } from './middleware/security-headers.js';
+import { createRateLimiter } from './middleware/rate-limit.js';
+import { createPayloadLimit } from './middleware/payload-limit.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // In Docker: __dirname is /app/server/dist, so ../../client/dist -> /app/client/dist
@@ -18,13 +21,22 @@ const clientDist = join(__dirname, '..', '..', 'client', 'dist');
 const app = new Hono();
 const db = createDb(process.env.DB_PATH || './secrets.db');
 const repo = createRepository(db);
-const secretsRouter = createSecretsRouter(repo);
 
-// Middleware
+// Security middleware (applied globally)
+app.use('*', securityHeaders);
 app.use('*', cors);
 app.onError(errorHandler);
 
+// Rate limiting: 60 requests per minute per IP on API routes
+const apiRateLimit = createRateLimiter({ windowMs: 60_000, maxRequests: 60 });
+app.use('/api/*', apiRateLimit);
+
+// Payload size limit: 64KB max on API routes
+const payloadLimit = createPayloadLimit(65536);
+app.use('/api/*', payloadLimit);
+
 // API routes
+const secretsRouter = createSecretsRouter(repo);
 app.route('/api/secrets', secretsRouter);
 
 // Static files (serve client SPA)
