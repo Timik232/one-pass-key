@@ -1,7 +1,7 @@
 import { createMiddleware } from 'hono/factory';
 
 const ALLOWED_PATTERNS: (string | RegExp)[] = (() => {
-  const env = process.env.ALLOWED_ORIGINS;
+  const env = process.env.CORS_ORIGINS;
   if (!env) return [];
 
   return env
