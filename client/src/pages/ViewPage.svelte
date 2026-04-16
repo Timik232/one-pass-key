@@ -5,7 +5,7 @@ import PassphrasePrompt from '../components/PassphrasePrompt.svelte';
 import SecretView from '../components/SecretView.svelte';
 import BurnNotice from '../components/BurnNotice.svelte';
 import ErrorDisplay from '../components/ErrorDisplay.svelte';
-import type { SecretMetaResponse } from '../lib/types';
+import type { SecretMetaResponse, SecretResponse } from '../lib/types';
 
 let { secretId: rawSecretId }: { secretId: string } = $props();
 
@@ -21,6 +21,11 @@ let decryptedMessage = $state('');
 let passphraseError = $state<string | null>(null);
 let errorMessage = $state('');
 
+// Cached encrypted data for passphrase-protected secrets.
+// Fetched once from server (which destroys it), then decryption
+// retries happen locally without re-fetching.
+let cachedSecret: SecretResponse | null = null;
+
 $effect(() => {
   loadMeta();
 });
@@ -31,6 +36,10 @@ async function loadMeta() {
     const meta: SecretMetaResponse = await getSecretMeta(secretId);
 
     if (meta.has_passphrase) {
+      // Fetch the encrypted data NOW (server destroys it after this),
+      // cache it locally so passphrase retries don't need another API call.
+      phase = 'revealing';
+      cachedSecret = await getSecret(secretId);
       phase = 'passphrase';
     } else if (keyFromUrl) {
       await fetchAndDecrypt(keyFromUrl);
@@ -63,15 +72,36 @@ async function fetchAndDecrypt(keyOrPassphrase: string) {
     if (err instanceof Error && err.message.includes('not found')) {
       phase = 'not-found';
     } else {
-      phase = 'passphrase';
-      passphraseError = err instanceof Error ? err.message : 'Decryption failed. Check your passphrase.';
+      phase = 'error';
+      errorMessage = err instanceof Error ? err.message : 'Decryption failed';
     }
   }
 }
 
 function handlePassphraseSubmit(passphrase: string) {
+  if (!cachedSecret) {
+    phase = 'error';
+    errorMessage = 'Secret data not available';
+    return;
+  }
   passphraseError = null;
-  fetchAndDecrypt(passphrase);
+  phase = 'revealing';
+
+  // Decrypt locally using cached data — no server call needed.
+  // This allows passphrase retries without destroying the secret again.
+  decrypt(
+    cachedSecret.encrypted_data,
+    cachedSecret.iv,
+    passphrase,
+    cachedSecret.salt ?? undefined
+  ).then((message) => {
+    decryptedMessage = message;
+    cachedSecret = null; // Clear sensitive data after successful decryption
+    phase = 'revealed';
+  }).catch((err) => {
+    passphraseError = err instanceof Error ? err.message : 'Wrong passphrase. Try again.';
+    phase = 'passphrase';
+  });
 }
 </script>
 
