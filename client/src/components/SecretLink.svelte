@@ -1,7 +1,7 @@
 <script lang="ts">
   import { copyToClipboard } from '../lib/utils';
 
-  let { link }: { link: string } = $props();
+  let { link, singleUse = true }: { link: string; singleUse?: boolean } = $props();
 
   let copied = $state(false);
 
@@ -18,7 +18,12 @@
 
 <div class="card success-card">
   <h2>Secret Created</h2>
-  <p class="instructions">Share this link with the recipient. The secret can only be viewed once.</p>
+  <p class="instructions">
+    Share this link with the recipient.
+    {singleUse
+      ? ' The secret will be destroyed after the first successful view.'
+      : ' The secret can be viewed multiple times until it expires.'}
+  </p>
 
   <div class="link-row">
     <input type="text" value={link} readonly class="link-input" />

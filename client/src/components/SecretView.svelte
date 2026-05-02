@@ -1,7 +1,7 @@
 <script lang="ts">
   import { copyToClipboard } from '../lib/utils';
 
-  let { message }: { message: string } = $props();
+  let { message, singleUse = true }: { message: string; singleUse?: boolean } = $props();
 
   let copied = $state(false);
 
@@ -22,7 +22,11 @@
       {copied ? 'Copied!' : 'Copy to Clipboard'}
     </button>
   </div>
-  <p class="warning">This message has been destroyed and cannot be viewed again.</p>
+  <p class="warning">
+    {singleUse
+      ? 'This message has been destroyed and cannot be viewed again.'
+      : 'This link is reusable and remains available until it expires.'}
+  </p>
 </div>
 
 <style>

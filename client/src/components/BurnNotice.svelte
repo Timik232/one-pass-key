@@ -1,7 +1,7 @@
 <div class="card burn-notice">
   <div class="icon">&#128293;</div>
-  <h2>Message Destroyed</h2>
-  <p class="text">This secret has already been read and permanently destroyed.</p>
+  <h2>Message Unavailable</h2>
+  <p class="text">This secret was already consumed or has expired.</p>
   <a href="#/">Create a new secret</a>
 </div>
 

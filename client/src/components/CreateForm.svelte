@@ -3,11 +3,12 @@
   import { createSecret } from '../lib/api';
   import { TTL_OPTIONS } from '../lib/utils';
 
-  let { onCreated }: { onCreated: (link: string) => void } = $props();
+  let { onCreated }: { onCreated: (link: string, singleUse: boolean) => void } = $props();
 
   let message = $state('');
   let ttlIndex = $state(1);
   let passphrase = $state('');
+  let singleUse = $state(true);
   let loading = $state(false);
   let error = $state('');
 
@@ -25,6 +26,7 @@
         iv,
         salt,
         has_passphrase: !!passphrase,
+        single_use: singleUse,
         ttl_seconds: TTL_OPTIONS[ttlIndex].seconds,
       });
 
@@ -36,7 +38,7 @@
         link = `${origin}/#/secret/${id}#${key}`;
       }
 
-      onCreated(link);
+      onCreated(link, singleUse);
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to create secret';
     } finally {
@@ -78,6 +80,13 @@
     />
   </div>
 
+  <div class="form-group checkbox-group">
+    <label for="secret-single-use" class="checkbox-label">
+      <input id="secret-single-use" type="checkbox" bind:checked={singleUse} />
+      One-time link (destroy after first successful view)
+    </label>
+  </div>
+
   {#if error}
     <p class="error-text">{error}</p>
   {/if}
@@ -101,5 +110,24 @@
     color: var(--danger);
     font-size: 14px;
     margin-bottom: 12px;
+  }
+
+  .checkbox-group {
+    margin-top: -2px;
+  }
+
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+
+  .checkbox-label input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--accent);
   }
 </style>

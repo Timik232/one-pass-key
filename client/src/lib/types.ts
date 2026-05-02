@@ -3,6 +3,7 @@ export interface CreateSecretRequest {
   iv: string; // base64url encoded
   salt?: string; // base64url encoded
   has_passphrase: boolean;
+  single_use?: boolean;
   ttl_seconds: number;
 }
 
@@ -17,11 +18,13 @@ export interface SecretResponse {
   iv: string;
   salt: string | null;
   has_passphrase: boolean;
+  single_use: boolean;
 }
 
 export interface SecretMetaResponse {
   id: string;
   has_passphrase: boolean;
+  single_use: boolean;
   expires_at: string;
 }
 

@@ -23,12 +23,16 @@ export function createSecretsRouter(
     if (![3600, 86400, 604800].includes(body.ttl_seconds)) {
       return c.json({ error: 'Invalid TTL' }, 400);
     }
+    if (body.single_use !== undefined && typeof body.single_use !== 'boolean') {
+      return c.json({ error: 'single_use must be a boolean' }, 400);
+    }
 
     const result = repo.create({
       encrypted_data: Buffer.from(body.encrypted_data, 'base64url'),
       iv: Buffer.from(body.iv, 'base64url'),
       salt: body.salt ? Buffer.from(body.salt, 'base64url') : null,
       has_passphrase: body.has_passphrase ? 1 : 0,
+      single_use: body.single_use === false ? 0 : 1,
       ttl_seconds: body.ttl_seconds,
     });
 
@@ -44,16 +48,16 @@ export function createSecretsRouter(
   router.get('/:id/meta', (c) => {
     const meta = repo.getMeta(c.req.param('id'));
     if (!meta) {
-      return c.json({ error: 'Secret not found or already read' }, 404);
+      return c.json({ error: 'Secret not found, expired, or unavailable' }, 404);
     }
     return c.json(meta);
   });
 
-  // GET /:id - Read and DELETE (atomic), with passphrase attempt rate limiting
+  // GET /:id - Read secret (deletes only when single_use = true), with passphrase attempt rate limiting
   router.get('/:id', passphraseLimiter.middleware, (c) => {
     const secret = repo.readAndDelete(c.req.param('id'));
     if (!secret) {
-      return c.json({ error: 'Secret not found or already read' }, 404);
+      return c.json({ error: 'Secret not found, expired, or unavailable' }, 404);
     }
     return c.json(secret);
   });

@@ -3,14 +3,14 @@ import type { SecretResponse, SecretMetaResponse } from '../types.js';
 
 export function createRepository(db: Database.Database) {
   const stmtInsert = db.prepare(`
-    INSERT INTO secrets (encrypted_data, iv, salt, has_passphrase, ttl_seconds, expires_at)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO secrets (encrypted_data, iv, salt, has_passphrase, single_use, ttl_seconds, expires_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
 
   const stmtSelectForRead = db.prepare(`
-    SELECT id, encrypted_data, iv, salt, has_passphrase
+    SELECT id, encrypted_data, iv, salt, has_passphrase, single_use
     FROM secrets
-    WHERE id = ? AND is_read = 0 AND expires_at > datetime('now')
+    WHERE id = ? AND expires_at > datetime('now')
   `);
 
   const stmtDelete = db.prepare(`
@@ -19,12 +19,21 @@ export function createRepository(db: Database.Database) {
 
   const stmtMarkReadAndDelete = db.transaction((id: string) => {
     const row = stmtSelectForRead.get(id) as
-      | { id: string; encrypted_data: Buffer; iv: Buffer; salt: Buffer | null; has_passphrase: number }
+      | {
+          id: string;
+          encrypted_data: Buffer;
+          iv: Buffer;
+          salt: Buffer | null;
+          has_passphrase: number;
+          single_use: number;
+        }
       | undefined;
 
     if (!row) return null;
 
-    stmtDelete.run(id);
+    if (row.single_use === 1) {
+      stmtDelete.run(id);
+    }
 
     return {
       id: row.id,
@@ -32,13 +41,14 @@ export function createRepository(db: Database.Database) {
       iv: row.iv.toString('base64url'),
       salt: row.salt ? row.salt.toString('base64url') : null,
       has_passphrase: row.has_passphrase === 1,
+      single_use: row.single_use === 1,
     } satisfies SecretResponse;
   });
 
   const stmtGetMeta = db.prepare(`
-    SELECT id, has_passphrase, expires_at
+    SELECT id, has_passphrase, single_use, expires_at
     FROM secrets
-    WHERE id = ? AND is_read = 0 AND expires_at > datetime('now')
+    WHERE id = ? AND expires_at > datetime('now')
   `);
 
   const stmtCleanup = db.prepare(`
@@ -51,6 +61,7 @@ export function createRepository(db: Database.Database) {
       iv: Buffer;
       salt: Buffer | null;
       has_passphrase: number;
+      single_use: number;
       ttl_seconds: number;
     }): { id: string; expires_at: string } {
       const expiresAt = new Date(Date.now() + data.ttl_seconds * 1000)
@@ -63,6 +74,7 @@ export function createRepository(db: Database.Database) {
         data.iv,
         data.salt,
         data.has_passphrase,
+        data.single_use,
         data.ttl_seconds,
         expiresAt,
       );
@@ -80,7 +92,7 @@ export function createRepository(db: Database.Database) {
 
     getMeta(id: string): SecretMetaResponse | null {
       const row = stmtGetMeta.get(id) as
-        | { id: string; has_passphrase: number; expires_at: string }
+        | { id: string; has_passphrase: number; single_use: number; expires_at: string }
         | undefined;
 
       if (!row) return null;
@@ -88,6 +100,7 @@ export function createRepository(db: Database.Database) {
       return {
         id: row.id,
         has_passphrase: row.has_passphrase === 1,
+        single_use: row.single_use === 1,
         expires_at: row.expires_at,
       };
     },

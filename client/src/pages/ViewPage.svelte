@@ -10,16 +10,21 @@ import type { SecretMetaResponse, SecretResponse } from '../lib/types';
 let { secretId: rawSecretId }: { secretId: string } = $props();
 
 // Parse the encryption key from the ID (URL format: #/secret/ID#KEY)
-// The router regex captures everything after /secret/, so we split on '#'
-const hashIndex = rawSecretId.indexOf('#');
-const secretId = hashIndex >= 0 ? rawSecretId.substring(0, hashIndex) : rawSecretId;
-const keyFromUrl: string | null = hashIndex >= 0 ? rawSecretId.substring(hashIndex + 1) : null;
+// The router regex captures everything after /secret/, so we split on '#'.
+function parseSecretRef(secretRef: string): { secretId: string; keyFromUrl: string | null } {
+  const hashIndex = secretRef.indexOf('#');
+  return {
+    secretId: hashIndex >= 0 ? secretRef.substring(0, hashIndex) : secretRef,
+    keyFromUrl: hashIndex >= 0 ? secretRef.substring(hashIndex + 1) : null,
+  };
+}
 
 type Phase = 'loading' | 'passphrase' | 'revealing' | 'revealed' | 'not-found' | 'error';
 let phase = $state<Phase>('loading');
 let decryptedMessage = $state('');
 let passphraseError = $state<string | null>(null);
 let errorMessage = $state('');
+let currentSingleUse = $state(true);
 
 // Cached encrypted data for passphrase-protected secrets.
 // Fetched once from server (which destroys it), then decryption
@@ -33,16 +38,18 @@ $effect(() => {
 async function loadMeta() {
   phase = 'loading';
   try {
+    const { secretId, keyFromUrl } = parseSecretRef(rawSecretId);
     const meta: SecretMetaResponse = await getSecretMeta(secretId);
+    currentSingleUse = meta.single_use;
 
     if (meta.has_passphrase) {
-      // Fetch the encrypted data NOW (server destroys it after this),
+      // Fetch the encrypted data now (server deletes only for single-use links),
       // cache it locally so passphrase retries don't need another API call.
       phase = 'revealing';
       cachedSecret = await getSecret(secretId);
       phase = 'passphrase';
     } else if (keyFromUrl) {
-      await fetchAndDecrypt(keyFromUrl);
+      await fetchAndDecrypt(secretId, keyFromUrl);
     } else {
       phase = 'error';
       errorMessage = 'Invalid link - missing encryption key';
@@ -57,7 +64,7 @@ async function loadMeta() {
   }
 }
 
-async function fetchAndDecrypt(keyOrPassphrase: string) {
+async function fetchAndDecrypt(secretId: string, keyOrPassphrase: string) {
   phase = 'revealing';
   try {
     const secret = await getSecret(secretId);
@@ -120,7 +127,7 @@ function handlePassphraseSubmit(passphrase: string) {
     <p class="loading-text">Decrypting...</p>
   </div>
 {:else if phase === 'revealed'}
-  <SecretView message={decryptedMessage} />
+  <SecretView message={decryptedMessage} singleUse={currentSingleUse} />
 {/if}
 
 <style>
