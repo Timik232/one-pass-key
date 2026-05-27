@@ -12,11 +12,29 @@ let { secretId: rawSecretId }: { secretId: string } = $props();
 // Parse the encryption key from the ID (URL format: #/secret/ID#KEY)
 // The router regex captures everything after /secret/, so we split on '#'.
 function parseSecretRef(secretRef: string): { secretId: string; keyFromUrl: string | null } {
+  // Support two URL formats:
+  //   Legacy: ID#KEY  (breaks in messengers that split on #)
+  //   New:    ID:KEY  (colon is URL-safe and not in base64url charset)
+  const colonIndex = secretRef.indexOf(':');
   const hashIndex = secretRef.indexOf('#');
-  return {
-    secretId: hashIndex >= 0 ? secretRef.substring(0, hashIndex) : secretRef,
-    keyFromUrl: hashIndex >= 0 ? secretRef.substring(hashIndex + 1) : null,
-  };
+
+  // Prefer colon separator (new format)
+  if (colonIndex >= 0) {
+    return {
+      secretId: secretRef.substring(0, colonIndex),
+      keyFromUrl: secretRef.substring(colonIndex + 1),
+    };
+  }
+
+  // Fallback to legacy hash separator for backwards compatibility
+  if (hashIndex >= 0) {
+    return {
+      secretId: secretRef.substring(0, hashIndex),
+      keyFromUrl: secretRef.substring(hashIndex + 1),
+    };
+  }
+
+  return { secretId: secretRef, keyFromUrl: null };
 }
 
 type Phase = 'loading' | 'passphrase' | 'revealing' | 'revealed' | 'not-found' | 'error';

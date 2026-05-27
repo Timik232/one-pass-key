@@ -35,7 +35,7 @@
       if (passphrase) {
         link = `${origin}/#/secret/${id}`;
       } else {
-        link = `${origin}/#/secret/${id}#${key}`;
+        link = `${origin}/#/secret/${id}:${key}`;
       }
 
       onCreated(link, singleUse);
