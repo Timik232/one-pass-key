@@ -6,11 +6,11 @@ const SECURITY_HEADERS = {
   'X-XSS-Protection': '0',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Content-Security-Policy':
-    "default-src 'self'; script-src 'self' https://umami.komolov.synology.me; style-src 'self' 'unsafe-inline'; img-src 'self' data: connect-src 'self' https://umami.komolov.synology.me; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'",
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'",
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
   'Cross-Origin-Opener-Policy': 'same-origin',
   'Cross-Origin-Resource-Policy': 'same-origin',
-  'Cross-Origin-Embedder-Policy': 'credentialless',
+  'Cross-Origin-Embedder-Policy': 'require-corp',
 };
 
 export const securityHeaders = createMiddleware(async (c, next) => {
